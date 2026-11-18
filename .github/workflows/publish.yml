@@ -1,0 +1,28 @@
+name: Verify and promote release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to verify
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: publish-stable
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          mkdir packages
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir packages --pattern 'qingcun-*.apk' --pattern 'qingcun-*.zip' --pattern 'update.json'
+          node verify-release.cjs packages
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
